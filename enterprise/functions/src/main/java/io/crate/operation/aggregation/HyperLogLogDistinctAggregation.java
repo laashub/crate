@@ -28,6 +28,7 @@ import io.crate.execution.engine.aggregation.impl.HyperLogLogPlusPlus;
 import io.crate.memory.MemoryManager;
 import io.crate.metadata.FunctionIdent;
 import io.crate.metadata.FunctionInfo;
+import io.crate.metadata.functions.Signature;
 import io.crate.module.EnterpriseFunctionsModule;
 import io.crate.types.BooleanType;
 import io.crate.types.ByteType;
@@ -51,8 +52,6 @@ import org.elasticsearch.common.io.stream.Writeable;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.Collections;
 
 public class HyperLogLogDistinctAggregation extends AggregationFunction<HyperLogLogDistinctAggregation.HllState, Long> {
 
@@ -63,22 +62,42 @@ public class HyperLogLogDistinctAggregation extends AggregationFunction<HyperLog
     }
 
     public static void register(EnterpriseFunctionsModule mod) {
-        for (DataType<?> t : DataTypes.PRIMITIVE_TYPES) {
-            mod.register(new HyperLogLogDistinctAggregation(new FunctionInfo(
-                new FunctionIdent(NAME, Collections.singletonList(t)), DataTypes.LONG,
-                FunctionInfo.Type.AGGREGATE),
-                t));
-            mod.register(new HyperLogLogDistinctAggregation(new FunctionInfo(
-                new FunctionIdent(NAME, Arrays.asList(t, DataTypes.INTEGER)), DataTypes.LONG,
-                FunctionInfo.Type.AGGREGATE),
-                t));
+        var returnType = DataTypes.LONG;
+        for (var supportedType : DataTypes.PRIMITIVE_TYPES) {
+            mod.register(
+                Signature.aggregate(
+                    NAME,
+                    supportedType.getTypeSignature(),
+                    returnType.getTypeSignature()
+                ).withForbiddenCoercion(),
+                args -> new HyperLogLogDistinctAggregation(
+                    new FunctionInfo(
+                        new FunctionIdent(NAME, args),
+                        returnType,
+                        FunctionInfo.Type.AGGREGATE),
+                    supportedType)
+            );
+            mod.register(
+                Signature.aggregate(
+                    NAME,
+                    supportedType.getTypeSignature(),
+                    DataTypes.INTEGER.getTypeSignature(),
+                    returnType.getTypeSignature()
+                ).withForbiddenCoercion(),
+                args -> new HyperLogLogDistinctAggregation(
+                    new FunctionInfo(
+                        new FunctionIdent(NAME, args),
+                        returnType,
+                        FunctionInfo.Type.AGGREGATE),
+                    supportedType)
+            );
         }
     }
 
     private final FunctionInfo info;
-    private final DataType dataType;
+    private final DataType<?> dataType;
 
-    private HyperLogLogDistinctAggregation(FunctionInfo info, DataType dataType) {
+    private HyperLogLogDistinctAggregation(FunctionInfo info, DataType<?> dataType) {
         this.info = info;
         this.dataType = dataType;
     }
@@ -131,7 +150,7 @@ public class HyperLogLogDistinctAggregation extends AggregationFunction<HyperLog
     }
 
     @Override
-    public DataType partialType() {
+    public DataType<?> partialType() {
         return HllStateType.INSTANCE;
     }
 

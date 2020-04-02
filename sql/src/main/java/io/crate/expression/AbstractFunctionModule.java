@@ -52,13 +52,6 @@ public abstract class AbstractFunctionModule<T extends FunctionImplementation> e
     /**
      * @deprecated Use {@link #register(Signature, Function)} instead.
      */
-    public void register(T impl) {
-        functions.put(impl.info().ident(), impl);
-    }
-
-    /**
-     * @deprecated Use {@link #register(Signature, Function)} instead.
-     */
     public void register(String name, FunctionResolver functionResolver) {
         register(new FunctionName(name), functionResolver);
     }
