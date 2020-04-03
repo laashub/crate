@@ -26,12 +26,18 @@ import io.crate.common.collections.Lists2;
 import io.crate.metadata.FunctionInfo;
 import io.crate.metadata.FunctionName;
 import io.crate.types.TypeSignature;
+import org.elasticsearch.common.io.stream.StreamInput;
+import org.elasticsearch.common.io.stream.StreamOutput;
+import org.elasticsearch.common.io.stream.Writeable;
 
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
-public final class Signature {
+public final class Signature implements Writeable {
 
     /**
      * See {@link #aggregate(FunctionName, TypeSignature...)}
@@ -231,6 +237,29 @@ public final class Signature {
         this.allowCoercion = allowCoercion;
     }
 
+    public Signature(StreamInput in) throws IOException {
+        name = new FunctionName(in);
+        kind = FunctionInfo.Type.values()[in.readVInt()];
+        int argsSize = in.readVInt();
+        argumentTypes = new ArrayList<>(argsSize);
+        for (int i = 0; i < argsSize; i++) {
+            argumentTypes.add(new TypeSignature(in));
+        }
+        returnType = new TypeSignature(in);
+        int variableConstraintsSize = in.readVInt();
+        typeVariableConstraints = new ArrayList<>(variableConstraintsSize);
+        for (int i = 0; i < variableConstraintsSize; i++) {
+            typeVariableConstraints.add(new TypeVariableConstraint(in));
+        }
+        int arityGroupSize = in.readVInt();
+        variableArityGroup = new ArrayList<>(arityGroupSize);
+        for (int i = 0; i < arityGroupSize; i++) {
+            variableArityGroup.add(new TypeSignature(in));
+        }
+        variableArity = in.readBoolean();
+        allowCoercion = in.readBoolean();
+    }
+
     public Signature withTypeVariableConstraints(TypeVariableConstraint... typeVariableConstraints) {
         return Signature.builder(this)
             .typeVariableConstraints(typeVariableConstraints)
@@ -283,6 +312,58 @@ public final class Signature {
 
     public boolean isCoercionAllowed() {
         return allowCoercion;
+    }
+
+    @Override
+    public void writeTo(StreamOutput out) throws IOException {
+        name.writeTo(out);
+        out.writeVInt(kind.ordinal());
+        out.writeVInt(argumentTypes.size());
+        for (TypeSignature typeSignature : argumentTypes) {
+            typeSignature.writeTo(out);
+        }
+        returnType.writeTo(out);
+        out.writeVInt(typeVariableConstraints.size());
+        for (TypeVariableConstraint variableConstraint : typeVariableConstraints) {
+            variableConstraint.writeTo(out);
+        }
+        out.writeVInt(variableArityGroup.size());
+        for (TypeSignature typeSignature : variableArityGroup) {
+            typeSignature.writeTo(out);
+        }
+        out.writeBoolean(variableArity);
+        out.writeBoolean(allowCoercion);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        Signature signature = (Signature) o;
+        return variableArity == signature.variableArity &&
+               allowCoercion == signature.allowCoercion &&
+               name.equals(signature.name) &&
+               kind == signature.kind &&
+               argumentTypes.equals(signature.argumentTypes) &&
+               returnType.equals(signature.returnType) &&
+               typeVariableConstraints.equals(signature.typeVariableConstraints) &&
+               variableArityGroup.equals(signature.variableArityGroup);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(name,
+                            kind,
+                            argumentTypes,
+                            returnType,
+                            typeVariableConstraints,
+                            variableArityGroup,
+                            variableArity,
+                            allowCoercion);
     }
 
     @Override

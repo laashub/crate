@@ -88,6 +88,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
 public class ScalarFunctionModule extends AbstractModule {
@@ -124,7 +125,7 @@ public class ScalarFunctionModule extends AbstractModule {
         resolver.put(qualifiedName, functionResolver);
     }
 
-    public void register(Signature signature, Function<List<DataType>, FunctionImplementation> factory) {
+    public void register(Signature signature, BiFunction<Signature, List<DataType>, FunctionImplementation> factory) {
         List<FuncResolver> functions = functionImplementations.computeIfAbsent(
             signature.getName(),
             k -> new ArrayList<>());

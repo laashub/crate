@@ -22,6 +22,11 @@
 
 package io.crate.types;
 
+import org.elasticsearch.common.io.stream.StreamInput;
+import org.elasticsearch.common.io.stream.StreamOutput;
+import org.elasticsearch.common.io.stream.Writeable;
+
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -30,7 +35,7 @@ import java.util.Objects;
 
 import static java.lang.String.format;
 
-public class TypeSignature {
+public class TypeSignature implements Writeable {
 
     /**
      * Creates a type signature out of the given signature string.
@@ -108,6 +113,15 @@ public class TypeSignature {
         this.parameters = parameters;
     }
 
+    public TypeSignature(StreamInput in) throws IOException {
+        baseTypeName = in.readString();
+        int numParams = in.readVInt();
+        parameters = new ArrayList<>(numParams);
+        for (int i = 0; i < numParams; i++) {
+            parameters.add(new TypeSignature(in));
+        }
+    }
+
     public String getBaseTypeName() {
         return baseTypeName;
     }
@@ -141,6 +155,15 @@ public class TypeSignature {
             return builder.build();
         }
         return DataTypes.ofName(baseTypeName);
+    }
+
+    @Override
+    public void writeTo(StreamOutput out) throws IOException {
+        out.writeString(baseTypeName);
+        out.writeVInt(parameters.size());
+        for (TypeSignature parameter : parameters) {
+            parameter.writeTo(out);
+        }
     }
 
     @Override

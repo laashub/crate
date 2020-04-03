@@ -172,6 +172,7 @@ public class ProjectionToProjectorVisitorTest extends CrateDummyClusterServiceUn
                 Collections.singletonList(new InputColumn(1))),
             new Aggregation(
                 countInfo,
+                CountAggregation.SIGNATURE,
                 countInfo.returnType(),
                 Collections.singletonList(new InputColumn(0)))
         ), RowGranularity.SHARD, AggregateMode.ITER_FINAL);
@@ -207,6 +208,7 @@ public class ProjectionToProjectorVisitorTest extends CrateDummyClusterServiceUn
                 Collections.singletonList(new InputColumn(1))),
             new Aggregation(
                 countInfo,
+                CountAggregation.SIGNATURE,
                 countInfo.returnType(),
                 Collections.singletonList(new InputColumn(0)))
         );

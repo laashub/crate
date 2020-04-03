@@ -37,6 +37,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
 public abstract class AbstractFunctionModule<T extends FunctionImplementation> extends AbstractModule {
@@ -70,7 +71,7 @@ public abstract class AbstractFunctionModule<T extends FunctionImplementation> e
         resolver.put(qualifiedName, functionResolver);
     }
 
-    public void register(Signature signature, Function<List<DataType>, FunctionImplementation> factory) {
+    public void register(Signature signature, BiFunction<Signature, List<DataType>, FunctionImplementation> factory) {
         List<FuncResolver> functions = functionImplementations.computeIfAbsent(
             signature.getName(),
             k -> new ArrayList<>());
