@@ -61,15 +61,13 @@ For further details about the meaning of the options see
 The CHECK constraint specifies that the values of certain columns must satisfy
 a boolean expression on insert and update.
 
-Syntax:
+Syntax::
 
-::
+  [CONSTRAINT check_name>] CHECK (boolean_expression)
 
-  [CONSTRAINT <name>] CHECK (boolean_expression)
-
-If `CONSTAINT <name>` is omitted, CrateDB generates a unique name automatically.
-This name is visible in :ref:`information_schema.table_constraints` and can be
-used to :ref:`ALTER TABLE DROP` a constraint.
+If `CONSTAINT check_name` is omitted, CrateDB generates a unique name automatically.
+This name is visible in :ref:`information_schema_table_constraints` and can be
+used to :ref:`drop-constraint` a constraint.
 
 The CONSTRAINT definition can either be inline with a column, like this::
 
