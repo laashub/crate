@@ -45,22 +45,19 @@ import java.util.Map;
  */
 public class CheckConstraintsTest extends CrateDummyClusterServiceUnitTest {
 
-    private SQLExecutor sqlExecutor;
-    private DocTableInfo docTableInfo;
     private CheckConstraints checkConstraints;
-    private TransactionContext txnCtx;
 
     @Before
     public void setUpExecutor() throws Exception {
-        sqlExecutor = SQLExecutor.builder(clusterService)
+        SQLExecutor sqlExecutor = SQLExecutor.builder(clusterService)
             .addTable("CREATE TABLE t (" +
                       "    id int," +
                       "    qty int," +
                       "    sentinel boolean CONSTRAINT sentinel CHECK(sentinel)," +
                       "    CONSTRAINT id_is_even CHECK(id % 2 = 0))")
             .build();
-        docTableInfo = sqlExecutor.resolveTableInfo("t");
-        txnCtx = CoordinatorTxnCtx.systemTransactionContext();
+        DocTableInfo docTableInfo = sqlExecutor.resolveTableInfo("t");
+        TransactionContext txnCtx = CoordinatorTxnCtx.systemTransactionContext();
         checkConstraints = new CheckConstraints(
             txnCtx,
             new InputFactory(sqlExecutor.functions()),
