@@ -48,8 +48,8 @@ class DropCheckConstraintAnalyzer {
             txnCtx.sessionContext().user(),
             txnCtx.sessionContext().searchPath());
         List<CheckConstraint<Symbol>> checkConstraints = tableInfo.checkConstraints();
-        for (int i = 0; i < checkConstraints.size(); i++) {
-            if (name.equals(checkConstraints.get(i).name())) {
+        for (var checkConstraint : checkConstraints) {
+            if (name.equals(checkConstraint.name())) {
                 return new AnalyzedAlterTableDropCheckConstraint(tableInfo, name);
             }
         }
