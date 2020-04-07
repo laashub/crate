@@ -1222,22 +1222,6 @@ public class CreateAlterTableStatementAnalyzerTest extends CrateDummyClusterServ
     }
 
     @Test
-    public void testCreateTableWithCheckConstraints() {
-        String stmt = "create table t (" +
-                      "    id int primary key, " +
-                      "    qty int constraint check_qty_gt_zero check(qty > 0), " +
-                      "    constraint check_id_ge_zero check (id >= 0)" +
-                      ")";
-        BoundCreateTable analysis = analyze(stmt);
-        Map<String, Object> mapping = analysis.mapping();
-        Map<String, String> checkConstraints = analysis.analyzedTableElements().getCheckConstraints();
-        assertEquals(checkConstraints.get("check_id_ge_zero"),
-                     Maps.getByPath(mapping, Arrays.asList("_meta", "check_constraints", "check_id_ge_zero")));
-        assertEquals(checkConstraints.get("check_qty_gt_zero"),
-                     Maps.getByPath(mapping, Arrays.asList("_meta", "check_constraints", "check_qty_gt_zero")));
-    }
-
-    @Test
     public void testAlterTableAddColumnWithCheckConstraint() throws Exception {
         SQLExecutor.builder(clusterService)
             .addTable("create table t (" +
