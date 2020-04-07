@@ -23,6 +23,12 @@ Description
 
 Removes a CHECK constraint from the table.
 
+.. WARNING::
+
+    Removed CHECK constraints cannot be re-added to an
+    existing table once dropped.
+
+
 Parameters
 ==========
 
