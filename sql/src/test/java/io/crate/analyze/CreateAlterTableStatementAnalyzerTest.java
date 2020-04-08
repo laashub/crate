@@ -29,6 +29,7 @@ import io.crate.exceptions.InvalidRelationName;
 import io.crate.exceptions.InvalidSchemaNameException;
 import io.crate.exceptions.OperationOnInaccessibleRelationException;
 import io.crate.exceptions.RelationAlreadyExists;
+import io.crate.exceptions.SQLParseException;
 import io.crate.exceptions.UnsupportedFeatureException;
 import io.crate.metadata.ColumnIdent;
 import io.crate.metadata.FulltextAnalyzerResolver;
@@ -1086,8 +1087,6 @@ public class CreateAlterTableStatementAnalyzerTest extends CrateDummyClusterServ
 
     @Test
     public void testCreateTableGeneratedColumnBasedOnGeneratedColumn() {
-        expectedException.expect(IllegalArgumentException.class);
-        expectedException.expectMessage("A generated column cannot be based on a generated column");
         analyze(
             "create table foo (" +
             "   ts timestamp with time zone," +

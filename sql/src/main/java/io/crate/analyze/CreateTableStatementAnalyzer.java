@@ -39,10 +39,10 @@ import io.crate.sql.tree.Expression;
 import io.crate.sql.tree.TableElement;
 
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.Map;
+import java.util.function.Function;
 
 public final class CreateTableStatementAnalyzer {
 
@@ -64,42 +64,85 @@ public final class CreateTableStatementAnalyzer {
         var exprAnalyzerWithFieldsAsString = new ExpressionAnalyzer(
             functions, txnCtx, paramTypeHints, FieldProvider.FIELDS_AS_LITERAL, null);
         var exprCtx = new ExpressionAnalysisContext();
+        Function<Expression, Symbol> exprMapper = y -> exprAnalyzerWithFieldsAsString.convert(y, exprCtx);
 
-        // 1st phase, map and analyze everything BESIDES [check constraint, generated, default] expressions
+        // 1st phase, map and analyze everything EXCEPT:
+        //   - check constraints defined at any level (table or column)
+        //   - generated expressions
+        //   - default expressions
+        Map<TableElement<Symbol>, TableElement<Expression>> analyzed = new LinkedHashMap<>();
+        List<CheckConstraint<Expression>> checkConstraints = new ArrayList<>();
+        for (int i = 0; i < createTable.tableElements().size(); i++) {
+            TableElement<Expression> te = createTable.tableElements().get(i);
+            if (te instanceof CheckConstraint) {
+                checkConstraints.add((CheckConstraint<Expression>) te);
+                continue;
+            }
+            TableElement<Symbol> analyzedTe = null;
+            if (te instanceof ColumnDefinition) {
+                ColumnDefinition<Expression> def = (ColumnDefinition<Expression>) te;
+                List<ColumnConstraint<Symbol>> analyzedColumnConstraints = new ArrayList<>();
+                for (int j = 0; j < def.constraints().size(); j++) {
+                    ColumnConstraint<Expression> cc = def.constraints().get(j);
+                    if (cc instanceof CheckColumnConstraint) {
+                        // Re-frame the column check constraint as a table check constraint
+                        CheckColumnConstraint<Expression> columnCheck = (CheckColumnConstraint<Expression>) cc;
+                        checkConstraints.add(new CheckConstraint<>(
+                            columnCheck.name(),
+                            def.ident(),
+                            columnCheck.expression(),
+                            columnCheck.expressionStr()
+                        ));
+                        continue;
+                    }
+                    analyzedColumnConstraints.add(cc.map(exprMapper));
+                }
+                analyzedTe = new ColumnDefinition<>(
+                    def.ident(),
+                    null,
+                    null,
+                    def.type() == null ? null : def.type().map(exprMapper),
+                    analyzedColumnConstraints,
+                    false,
+                    false);
+            }
+            analyzed.put(analyzedTe == null ? te.map(exprMapper) : analyzedTe, te);
+        }
         CreateTable<Symbol> analyzedCreateTable = new CreateTable<>(
-            createTable.name().map(x -> exprAnalyzerWithFieldsAsString.convert(x, exprCtx)),
-            analyzeButCheckConstraints(createTable, exprAnalyzerWithFieldsAsString, exprCtx),
-            createTable.partitionedBy().map(x -> x.map(y -> exprAnalyzerWithFieldsAsString.convert(y, exprCtx))),
-            createTable.clusteredBy().map(x -> x.map(y -> exprAnalyzerWithFieldsAsString.convert(y, exprCtx))),
+            createTable.name().map(exprMapper),
+            new ArrayList<>(analyzed.keySet()),
+            createTable.partitionedBy().map(x -> x.map(exprMapper)),
+            createTable.clusteredBy().map(x -> x.map(exprMapper)),
             createTable.properties().map(x -> exprAnalyzerWithoutFields.convert(x, exprCtx)),
             createTable.ifNotExists()
         );
         AnalyzedTableElements<Symbol> analyzedTableElements = TableElementsAnalyzer.analyze(
             analyzedCreateTable.tableElements(), relationName, null);
 
-        // 2nd phase, analyze generated/default Expressions and check constraints with a reference resolver
+        // 2nd phase, analyze and map with a reference resolver:
+        //   - generated/default expressions
+        //   - check constraints
         TableReferenceResolver referenceResolver = analyzedTableElements.referenceResolver(relationName);
         var exprAnalyzerWithReferences = new ExpressionAnalyzer(
             functions, txnCtx, paramTypeHints, referenceResolver, null);
         List<TableElement<Symbol>> tableElementsWithExpressions = new ArrayList<>();
         for (int i = 0; i < analyzedCreateTable.tableElements().size(); i++) {
-            TableElement<Expression> elementExpression = createTable.tableElements().get(i);
             TableElement<Symbol> elementSymbol = analyzedCreateTable.tableElements().get(i);
+            TableElement<Expression> elementExpression = analyzed.get(elementSymbol);
             tableElementsWithExpressions.add(elementExpression.mapExpressions(elementSymbol, x -> {
                 Symbol symbol = exprAnalyzerWithReferences.convert(x, exprCtx);
                 EnsureNoMatchPredicate.ensureNoMatchPredicate(symbol, "Cannot use MATCH in CREATE TABLE statements");
                 return symbol;
             }));
         }
-        List<TableElement<Symbol>> analyzedCheckConstraints = createTable.tableElements()
+        checkConstraints
             .stream()
-            .filter(x -> x instanceof CheckConstraint)
-            .map(x -> (CheckConstraint<Expression>) x)
             .map(x -> x.map(y -> exprAnalyzerWithReferences.convert(y, exprCtx)))
-            .collect(Collectors.toList());
-        tableElementsWithExpressions.addAll(analyzedCheckConstraints);
-        analyzedCreateTable.tableElements().addAll(analyzedCheckConstraints);
-        analyzedCheckConstraints.forEach(c -> analyzedTableElements.addCheckConstraint(relationName, (CheckConstraint<Symbol>) c));
+            .forEach(te -> {
+                analyzedCreateTable.tableElements().add(te);
+                tableElementsWithExpressions.add(te);
+                analyzedTableElements.addCheckConstraint(relationName, (CheckConstraint<Symbol>) te);
+            });
         AnalyzedTableElements<Symbol> analyzedTableElementsWithExpressions = TableElementsAnalyzer.analyze(
             tableElementsWithExpressions, relationName, null, false);
         return new AnalyzedCreateTable(
@@ -108,40 +151,5 @@ public final class CreateTableStatementAnalyzer {
             analyzedTableElements,
             analyzedTableElementsWithExpressions
         );
-    }
-
-    private static List<TableElement<Symbol>> analyzeButCheckConstraints(CreateTable<Expression> createTable,
-                                                                         ExpressionAnalyzer exprAnalyzerWithFieldsAsString,
-                                                                         ExpressionAnalysisContext exprCtx) {
-        List<TableElement<Expression>> notCheckConstraints = createTable.tableElements()
-            .stream()
-            .filter(x -> false == x instanceof CheckConstraint)
-            .collect(Collectors.toList());
-        List<TableElement<Symbol>> analyzed = new ArrayList<>(notCheckConstraints.size());
-        Set<CheckColumnConstraint<Expression>> checkColumnConstraints = new HashSet<>(notCheckConstraints.size());
-        for (int i = 0; i < notCheckConstraints.size(); i++) {
-            TableElement<Expression> te = notCheckConstraints.get(i);
-            if (te instanceof ColumnDefinition) {
-                ColumnDefinition<Expression> def = (ColumnDefinition<Expression>) te;
-                List<ColumnConstraint<Expression>> constraints = def.constraints();
-                for (int j = 0; j < constraints.size(); j++) {
-                    ColumnConstraint<Expression> cc = constraints.get(j);
-                    if (cc instanceof CheckColumnConstraint) {
-                        CheckColumnConstraint<Expression> check = (CheckColumnConstraint<Expression>) cc;
-                        checkColumnConstraints.add(check);
-                        // Re-frame the column constraint as a table constraint
-                        createTable.tableElements().add(new CheckConstraint<>(
-                            check.name(),
-                            def.ident(),
-                            check.expression(),
-                            check.expressionStr()
-                        ));
-                    }
-                }
-                def.constraints().removeAll(checkColumnConstraints);
-            }
-            analyzed.add(te.map(y -> exprAnalyzerWithFieldsAsString.convert(y, exprCtx)));
-        }
-        return analyzed;
     }
 }

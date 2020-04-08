@@ -29,6 +29,7 @@ import io.crate.metadata.FunctionIdent;
 import io.crate.metadata.FunctionInfo;
 import io.crate.types.ArrayType;
 import io.crate.types.DataType;
+import io.crate.types.DataTypes;
 import io.crate.types.ObjectType;
 
 import java.util.HashMap;
@@ -74,7 +75,9 @@ public class CastFunctionResolver {
         // limitation we encode the return type info as the second function
         // argument.
         return new Function(
-            functionInfo(List.of(sourceType, targetType), targetType, tryCast),
+            // the sourceType will be null when we refer to a column
+            // that is defined as a generated expression
+            functionInfo(List.of(sourceType == null ? DataTypes.UNDEFINED : sourceType, targetType), targetType, tryCast),
             // the null literal is passed as an argument to match the method signature
             List.of(sourceSymbol, Literal.NULL));
     }

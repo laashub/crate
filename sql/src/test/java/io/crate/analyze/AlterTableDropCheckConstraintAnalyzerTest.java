@@ -68,7 +68,7 @@ public class AlterTableDropCheckConstraintAnalyzerTest extends CrateDummyCluster
     @Test
     public void testDropCheckConstraintFailsBecauseTheNameDoesNotReferToAnExistingConstraint() {
         expectedException.expectMessage(
-            "Cannot find a CHECK CONSTRAINT named [bazinga], available constraints are: [check_id_ge_zero, check_qty_gt_zero]");
+            "Cannot find a CHECK CONSTRAINT named [bazinga], available constraints are: [check_qty_gt_zero, check_id_ge_zero]");
         analyze("alter table t drop constraint bazinga");
     }
 }

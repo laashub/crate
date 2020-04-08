@@ -240,8 +240,8 @@ public class MetaDataToASTNodeResolverTest extends CrateDummyClusterServiceUnitT
         assertEquals("CREATE TABLE IF NOT EXISTS \"doc\".\"test\" (\n" +
                      "   \"floats\" REAL,\n" +
                      "   \"shorts\" SMALLINT,\n" +
-                     "   CONSTRAINT test_shorts_check CHECK(\"shorts\" >= 0),\n" +
-                     "   CONSTRAINT test_floats_check CHECK(\"floats\" <> - 1)\n" +
+                     "   CONSTRAINT test_floats_check CHECK(\"floats\" <> - 1),\n" +
+                     "   CONSTRAINT test_shorts_check CHECK(\"shorts\" >= 0)\n" +
                      ")\n" +
                      "CLUSTERED INTO 5 SHARDS\n" +
                      "WITH (\n" +
