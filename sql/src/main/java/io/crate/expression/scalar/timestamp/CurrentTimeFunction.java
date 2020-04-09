@@ -21,31 +21,32 @@
 
 package io.crate.expression.scalar.timestamp;
 
-import com.google.common.math.LongMath;
 import io.crate.data.Input;
+import io.crate.expression.scalar.DateFormatFunction;
 import io.crate.expression.scalar.ScalarFunctionModule;
+import io.crate.expression.scalar.TimestampFormatter;
 import io.crate.metadata.FunctionIdent;
 import io.crate.metadata.FunctionInfo;
 import io.crate.metadata.Scalar;
 import io.crate.metadata.TransactionContext;
 import io.crate.metadata.functions.Signature;
 import io.crate.types.DataTypes;
+import io.crate.types.TimestampType;
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 
-import java.math.RoundingMode;
 import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
 
 import static io.crate.types.TypeSignature.parseTypeSignature;
 
-public class CurrentTimestampFunction extends Scalar<Long, Integer> {
+public class CurrentTimeFunction extends Scalar<String, Integer> {
 
-    public static final String NAME = "current_timestamp";
-    public static final int DEFAULT_PRECISION = 3;
+    public static final String NAME = "current_time";
 
     public static final FunctionInfo INFO = new FunctionInfo(
         new FunctionIdent(NAME, List.of(DataTypes.INTEGER)),
-        DataTypes.TIMESTAMPZ,
+        DataTypes.STRING,
         FunctionInfo.Type.SCALAR,
         Collections.emptySet());
 
@@ -54,49 +55,27 @@ public class CurrentTimestampFunction extends Scalar<Long, Integer> {
             Signature.scalar(
                 NAME,
                 parseTypeSignature("integer"),
-                parseTypeSignature("timestamp with time zone")
+                parseTypeSignature("string")
             ),
-            args -> new CurrentTimestampFunction()
+            args -> new CurrentTimeFunction()
         );
     }
 
-    @Override
-    @SafeVarargs
-    public final Long evaluate(TransactionContext txnCtx, Input<Integer>... args) {
-        long millis = txnCtx.currentTimeMillis();
-        Integer precision = 3;
-        if (args.length == 1) {
-            precision = args[0].value();
-            if (precision == null) {
-                throw new IllegalArgumentException(String.format(Locale.ENGLISH,
-                    "NULL precision not supported for %s", NAME));
-            }
-        }
-        return applyPrecision(millis, precision);
-    }
-
-    private static long applyPrecision(long millis, int precision) {
-        int factor;
-        switch (precision) {
-            case 0:
-                factor = 1000;
-                break;
-            case 1:
-                factor = 100;
-                break;
-            case 2:
-                factor = 10;
-                break;
-            case 3:
-                return millis;
-            default:
-                throw new IllegalArgumentException("Precision must be between 0 and 3");
-        }
-        return LongMath.divide(millis, factor, RoundingMode.DOWN) * factor;
-    }
+    private final CurrentTimestampFunction tsSupplier = new CurrentTimestampFunction();
 
     @Override
     public FunctionInfo info() {
         return INFO;
+    }
+
+    @Override
+    @SafeVarargs
+    public final String evaluate(TransactionContext txnCtx, Input<Integer>... args) {
+        Long ts = tsSupplier.evaluate(txnCtx, args);
+        return TimestampFormatter.format(
+            DateFormatFunction.DEFAULT_FORMAT,
+            new DateTime(
+                TimestampType.INSTANCE_WITH_TZ.value(ts),
+                DateTimeZone.UTC));
     }
 }
