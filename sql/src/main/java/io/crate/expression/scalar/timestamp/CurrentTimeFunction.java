@@ -22,31 +22,29 @@
 package io.crate.expression.scalar.timestamp;
 
 import io.crate.data.Input;
-import io.crate.expression.scalar.DateFormatFunction;
 import io.crate.expression.scalar.ScalarFunctionModule;
-import io.crate.expression.scalar.TimestampFormatter;
 import io.crate.metadata.FunctionIdent;
 import io.crate.metadata.FunctionInfo;
 import io.crate.metadata.Scalar;
 import io.crate.metadata.TransactionContext;
 import io.crate.metadata.functions.Signature;
 import io.crate.types.DataTypes;
-import io.crate.types.TimestampType;
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
 
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.List;
 
 import static io.crate.types.TypeSignature.parseTypeSignature;
 
-public class CurrentTimeFunction extends Scalar<String, Integer> {
+public class CurrentTimeFunction extends Scalar<Long, Integer> {
 
     public static final String NAME = "current_time";
 
     public static final FunctionInfo INFO = new FunctionInfo(
         new FunctionIdent(NAME, List.of(DataTypes.INTEGER)),
-        DataTypes.STRING,
+        DataTypes.TIMESTAMPZ,
         FunctionInfo.Type.SCALAR,
         Collections.emptySet());
 
@@ -55,13 +53,11 @@ public class CurrentTimeFunction extends Scalar<String, Integer> {
             Signature.scalar(
                 NAME,
                 parseTypeSignature("integer"),
-                parseTypeSignature("string")
+                parseTypeSignature("timestamp with time zone")
             ),
             args -> new CurrentTimeFunction()
         );
     }
-
-    private final CurrentTimestampFunction tsSupplier = new CurrentTimestampFunction();
 
     @Override
     public FunctionInfo info() {
@@ -70,12 +66,14 @@ public class CurrentTimeFunction extends Scalar<String, Integer> {
 
     @Override
     @SafeVarargs
-    public final String evaluate(TransactionContext txnCtx, Input<Integer>... args) {
-        Long ts = tsSupplier.evaluate(txnCtx, args);
-        return TimestampFormatter.format(
-            DateFormatFunction.DEFAULT_FORMAT,
-            new DateTime(
-                TimestampType.INSTANCE_WITH_TZ.value(ts),
-                DateTimeZone.UTC));
+    public final Long evaluate(TransactionContext txnCtx, Input<Integer>... args) {
+        long now = txnCtx.currentTimeMillis();
+        long justDate = Instant
+            .ofEpochMilli(now)
+            .atZone(ZoneOffset.UTC)
+            .truncatedTo(ChronoUnit.DAYS)
+            .toInstant()
+            .toEpochMilli();
+        return CurrentTimestampFunction.applyPrecision(now - justDate, args);
     }
 }

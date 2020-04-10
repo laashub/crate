@@ -16,10 +16,11 @@ import static org.hamcrest.Matchers.instanceOf;
 
 public class CurrentTimeFunctionTest extends AbstractScalarFunctionsTest {
 
-    private static final long EXPECTED_TIMESTAMP = 257508000000L;
-    private static final String EXPECTED_TIMESTAMP_STR = "1978-02-28T10:00:00.000000Z";
+    private static final long TIMESTAMP = 257508552123L; // "1978-02-28T10:09:12.123456Z"
+    private static final long TIME = 36552123L;
+    private static final String TIME_AS_TIMESTAMP_STR = "1970-01-01T10:09:12.123000Z";
 
-    private static String format(long ts) {
+    private static String formatTs(long ts) {
         return TimestampFormatter.format(
             DateFormatFunction.DEFAULT_FORMAT,
             new DateTime(
@@ -29,7 +30,7 @@ public class CurrentTimeFunctionTest extends AbstractScalarFunctionsTest {
 
     @Before
     public void prepare() {
-        DateTimeUtils.setCurrentMillisFixed(EXPECTED_TIMESTAMP);
+        DateTimeUtils.setCurrentMillisFixed(TIMESTAMP);
     }
 
     @After
@@ -39,28 +40,30 @@ public class CurrentTimeFunctionTest extends AbstractScalarFunctionsTest {
 
     @Test
     public void timestampIsCreatedCorrectly() {
-        assertEvaluate("current_time", EXPECTED_TIMESTAMP_STR);
-        assertEvaluate("current_time", format(EXPECTED_TIMESTAMP));
+        assertEvaluate("current_time", TIME);
+        assertEvaluate("date_format(current_time)", formatTs(TIME));
+        assertEvaluate("current_timestamp - current_time", TIMESTAMP - TIME);
+        assertEvaluate("date_format(current_timestamp - current_time)", formatTs(TIMESTAMP - TIME));
     }
 
     @Test
     public void precisionOfZeroDropsAllFractionsOfSeconds() {
-        assertEvaluate("current_time(0)", format(EXPECTED_TIMESTAMP - (EXPECTED_TIMESTAMP % 1000)));
+        assertEvaluate("current_time(0)", TIME - (TIME % 1000));
     }
 
     @Test
     public void precisionOfOneDropsLastTwoDigitsOfFractionsOfSecond() {
-        assertEvaluate("current_time(1)", format(EXPECTED_TIMESTAMP - (EXPECTED_TIMESTAMP % 100)));
+        assertEvaluate("current_time(1)", TIME - (TIME % 100));
     }
 
     @Test
     public void precisionOfTwoDropsLastDigitOfFractionsOfSecond() {
-        assertEvaluate("current_time(2)", format(EXPECTED_TIMESTAMP - (EXPECTED_TIMESTAMP % 10)));
+        assertEvaluate("current_time(2)", TIME - (TIME % 10));
     }
 
     @Test
     public void precisionOfThreeKeepsAllFractionsOfSeconds() {
-        assertEvaluate("current_time(3)", EXPECTED_TIMESTAMP_STR);
+        assertEvaluate("date_format(current_time(3))", TIME_AS_TIMESTAMP_STR);
     }
 
     @Test
