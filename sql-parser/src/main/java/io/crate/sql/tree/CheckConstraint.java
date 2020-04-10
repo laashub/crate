@@ -21,7 +21,6 @@
 
 package io.crate.sql.tree;
 
-import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 
 import javax.annotation.Nullable;
@@ -98,10 +97,10 @@ public class CheckConstraint<T> extends TableElement<T> {
 
     @Override
     public String toString() {
-        return MoreObjects.toStringHelper(this)
-            .add("name", name)
-            .add("columnName", columnName)
-            .add("expression", expressionStr)
-            .toString();
+        return "CheckConstraint{" +
+               "name='" + name + '\'' +
+               ", columnName='" + columnName + '\'' +
+               ", expression=" + expression +
+               '}';
     }
 }

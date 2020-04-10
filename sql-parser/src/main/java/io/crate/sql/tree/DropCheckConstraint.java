@@ -21,7 +21,6 @@
 
 package io.crate.sql.tree;
 
-import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 
 public class DropCheckConstraint<T> extends Statement {
@@ -67,9 +66,9 @@ public class DropCheckConstraint<T> extends Statement {
 
     @Override
     public String toString() {
-        return MoreObjects.toStringHelper(this)
-            .add("table", table)
-            .add("name", name)
-            .toString();
+        return "DropCheckConstraint{" +
+               "table=" + table +
+               ", name='" + name + '\'' +
+               '}';
     }
 }
