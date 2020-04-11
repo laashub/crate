@@ -69,6 +69,9 @@ None
 Changes
 =======
 
+- Added the scalar function ``CURRENT_TIME``, which returns the time portion
+  of ``CURRENT_TIMESTAMP`` in absolute milliseconds, see :ref:`current_time`.
+
 - Optimized `<column> IS NOT NULL` queries.
 
 - Include the bundled version of ``OpenJDK`` (13.0.2+8) into the ``CrateDB``
